@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+data/jobs/*.json
+data/assets/_index/*.json
+data/assets/character/
+data/assets/video/
+data/assets/motion/
+data/assets/facial/
+data/logs/*.log
+
