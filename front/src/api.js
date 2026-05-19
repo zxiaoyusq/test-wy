@@ -24,6 +24,8 @@ export function assetUrl(assetId) {
 export const api = {
   health: () => request('/health'),
   assets: () => request('/api/assets'),
+  // 拉取某个模块的历史任务列表（后端已按创建时间倒序返回）
+  listJobs: (moduleId) => request(`/api/${moduleId}/jobs`),
   createCharacterJob: (payload) =>
     request('/api/character/jobs', {
       method: 'POST',

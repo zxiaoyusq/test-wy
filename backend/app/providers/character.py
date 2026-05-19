@@ -55,12 +55,17 @@ class QwenImageProvider:
                 raise RuntimeError("Qwen image response does not contain image URLs.")
 
             artifacts: list[ProviderArtifact] = []
+            safe_response = _safe_response_for_manifest(response_data)
             for index, image_url in enumerate(image_urls, start=1):
                 image_response = client.get(image_url)
                 image_response.raise_for_status()
+                # 图片与对应 JSON 使用同一文件名前缀，保证一一对应
+                image_basename = f"character_image_{index}"
+                image_name = f"{image_basename}.png"
+                json_name = f"{image_basename}.json"
                 artifacts.append(
                     ProviderArtifact(
-                        name=f"character_image_{index}.png",
+                        name=image_name,
                         type=AssetType.image,
                         mime_type="image/png",
                         format="png",
@@ -74,27 +79,38 @@ class QwenImageProvider:
                             "endpoint": endpoint,
                             "source_url_expires": "24h",
                             "request_id": response_data.get("request_id"),
+                            "json_manifest": json_name,
                         },
                     )
                 )
-
-            manifest = {
-                "request": request.model_dump(),
-                "system_prompt": CHARACTER_SYSTEM_PROMPT,
-                "effective_prompt": _build_effective_prompt(request.prompt),
-                "qwen_payload": payload,
-                "qwen_response": _safe_response_for_manifest(response_data),
-            }
-            artifacts.append(
-                ProviderArtifact(
-                    name="character_manifest.json",
-                    type=AssetType.metadata,
-                    mime_type="application/json",
-                    format="json",
-                    content=json.dumps(manifest, ensure_ascii=False, indent=2),
-                    metadata={"schema": "character_manifest.v1", "provider": QWEN_IMAGE_MODEL},
+                # 每张图片单独生成一份同名 JSON 描述文件
+                per_image_manifest = {
+                    "image_file": image_name,
+                    "image_index": index,
+                    "request": request.model_dump(),
+                    "system_prompt": CHARACTER_SYSTEM_PROMPT,
+                    "effective_prompt": _build_effective_prompt(request.prompt),
+                    "model": QWEN_IMAGE_MODEL,
+                    "size": QWEN_IMAGE_SIZE,
+                    "endpoint": endpoint,
+                    "request_id": response_data.get("request_id"),
+                    "qwen_payload": payload,
+                    "qwen_response": safe_response,
+                }
+                artifacts.append(
+                    ProviderArtifact(
+                        name=json_name,
+                        type=AssetType.metadata,
+                        mime_type="application/json",
+                        format="json",
+                        content=json.dumps(per_image_manifest, ensure_ascii=False, indent=2),
+                        metadata={
+                            "schema": "character_manifest.v1",
+                            "provider": QWEN_IMAGE_MODEL,
+                            "image_file": image_name,
+                        },
+                    )
                 )
-            )
 
         return ProviderResult(
             provider=self.name,
@@ -136,9 +152,13 @@ class MockCharacterProvider:
         artifacts: list[ProviderArtifact] = []
 
         if request.generate_image:
+            # mock 模式下图片与 JSON 文件名同步：character_concept.svg / character_concept.json
+            image_basename = "character_concept"
+            image_name = f"{image_basename}.svg"
+            json_name = f"{image_basename}.json"
             artifacts.append(
                 ProviderArtifact(
-                    name="character_concept.svg",
+                    name=image_name,
                     type=AssetType.image,
                     mime_type="image/svg+xml",
                     format="svg",
@@ -148,19 +168,67 @@ class MockCharacterProvider:
                         "system_prompt": CHARACTER_SYSTEM_PROMPT,
                         "effective_prompt": _build_effective_prompt(request.prompt),
                         "provider_hint": request.image_provider,
+                        "json_manifest": json_name,
                     },
+                )
+            )
+            # mock 图片对应的同名 JSON 描述
+            artifacts.append(
+                ProviderArtifact(
+                    name=json_name,
+                    type=AssetType.metadata,
+                    mime_type="application/json",
+                    format="json",
+                    content=json.dumps(
+                        {
+                            "image_file": image_name,
+                            "request": request.model_dump(),
+                            "system_prompt": CHARACTER_SYSTEM_PROMPT,
+                            "effective_prompt": _build_effective_prompt(request.prompt),
+                            "provider_hint": request.image_provider,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    metadata={"schema": "character_manifest.v1", "image_file": image_name},
                 )
             )
 
         if request.generate_multiview:
+            multiview_basename = "character_multiview"
+            multiview_image = f"{multiview_basename}.svg"
+            multiview_json = f"{multiview_basename}.json"
             artifacts.append(
                 ProviderArtifact(
-                    name="character_multiview.svg",
+                    name=multiview_image,
                     type=AssetType.image,
                     mime_type="image/svg+xml",
                     format="svg",
                     content=_svg_preview("Multi View Reference", _build_effective_prompt(request.prompt)),
-                    metadata={"views": ["front", "side", "back"], "system_prompt": CHARACTER_SYSTEM_PROMPT},
+                    metadata={
+                        "views": ["front", "side", "back"],
+                        "system_prompt": CHARACTER_SYSTEM_PROMPT,
+                        "json_manifest": multiview_json,
+                    },
+                )
+            )
+            artifacts.append(
+                ProviderArtifact(
+                    name=multiview_json,
+                    type=AssetType.metadata,
+                    mime_type="application/json",
+                    format="json",
+                    content=json.dumps(
+                        {
+                            "image_file": multiview_image,
+                            "views": ["front", "side", "back"],
+                            "request": request.model_dump(),
+                            "system_prompt": CHARACTER_SYSTEM_PROMPT,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    metadata={"schema": "character_manifest.v1", "image_file": multiview_image},
                 )
             )
 
@@ -175,17 +243,6 @@ class MockCharacterProvider:
                     metadata={"provider_hint": request.model3d_provider, "dcc": ["Blender", "Maya"]},
                 )
             )
-
-        artifacts.append(
-            ProviderArtifact(
-                name="character_manifest.json",
-                type=AssetType.metadata,
-                mime_type="application/json",
-                format="json",
-                content=json.dumps(request.model_dump(), ensure_ascii=False, indent=2),
-                metadata={"schema": "character_manifest.v1"},
-            )
-        )
 
         return ProviderResult(
             provider=self.name,

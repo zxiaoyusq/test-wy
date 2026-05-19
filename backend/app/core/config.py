@@ -18,6 +18,15 @@ class Settings(BaseSettings):
         default="https://dashscope.aliyuncs.com/api/v1",
         validation_alias=AliasChoices("DASHSCOPE_BASE_URL", "APP_DASHSCOPE_BASE_URL"),
     )
+    # 千面动捕（qmai.vip）开放平台凭证，所有动作捕捉接口均使用该 key 作为 companyKey
+    qmai_company_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("QMAI_COMPANY_KEY", "APP_QMAI_COMPANY_KEY"),
+    )
+    qmai_base_url: str = Field(
+        default="https://www.qmai.vip/business",
+        validation_alias=AliasChoices("QMAI_BASE_URL", "APP_QMAI_BASE_URL"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -232,6 +232,49 @@ select {
   font-size: 13px;
 }
 
+/* 视频模块表单里展示选中的角色图缩略预览 */
+.selected-asset-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: -4px 0 14px;
+  padding: 10px;
+  border: 1px solid #d9e2e5;
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.selected-asset-preview img {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #eef3f4;
+}
+
+.selected-asset-meta {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.selected-asset-meta strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.selected-asset-meta span,
+.selected-asset-meta a {
+  color: #64747c;
+  font-size: 13px;
+}
+
+.selected-asset-meta a {
+  color: #236476;
+  text-decoration: none;
+}
+
 .error-message {
   max-width: 1120px;
   margin: 0 0 16px;
@@ -257,6 +300,61 @@ select {
 .section-title span {
   color: #64747c;
   font-size: 13px;
+}
+
+/* 结果预览右上角：历史任务下拉 + 状态文字 */
+.section-title-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #3f5159;
+}
+
+.history-picker select {
+  min-height: 32px;
+  min-width: 240px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.job-status {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #d9e2e5;
+  border-radius: 8px;
+  background: #f9fbfb;
+}
+
+.job-status strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.job-status span,
+.job-status p {
+  margin: 0;
+  color: #64747c;
+  font-size: 13px;
+}
+
+.job-status.failed {
+  border-color: #ffc1b8;
+  background: #fff1ef;
+}
+
+.job-status.failed span,
+.job-status.failed p {
+  color: #a13b2d;
 }
 
 .empty-preview {
@@ -300,6 +398,147 @@ select {
 
 .asset-preview iframe {
   background: white;
+}
+
+/* JSON 文本预览：以代码块样式展示，可滚动 */
+.json-preview {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #0f1720;
+  color: #d8e3eb;
+  font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  text-align: left;
+}
+
+/* 独立可滚动的 JSON 区域，配对卡片的 JSON 窗口使用 */
+.json-preview-scroll {
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* JSON 卡片放宽宽高比，便于查看更多行 */
+.asset-item-json .asset-preview {
+  aspect-ratio: auto;
+  min-height: 260px;
+  max-height: 360px;
+}
+
+/* 配对卡片：图片 + 同名 JSON 横向并排，跨整行 */
+.asset-item-paired {
+  grid-column: 1 / -1;
+}
+
+.paired-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 0;
+}
+
+.paired-image {
+  border-right: 1px solid #d9e2e5;
+  background: #fbfdfd;
+}
+
+.paired-image .asset-preview {
+  aspect-ratio: 1 / 1;
+}
+
+/* JSON 窗口：固定高度，内部独立纵向滚动 */
+.paired-json {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 480px;
+  background: #0f1720;
+}
+
+.paired-json-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #1b2632;
+  color: #d8e3eb;
+  border-bottom: 1px solid #243139;
+}
+
+.paired-json-header strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.paired-json-header a {
+  color: #8ec5d6;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.paired-json .json-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 820px) {
+  /* 窄屏下改成上下排列，避免 JSON 被挤窄 */
+  .paired-body {
+    grid-template-columns: 1fr;
+  }
+
+  .paired-image {
+    border-right: 0;
+    border-bottom: 1px solid #d9e2e5;
+  }
+
+  .paired-json {
+    height: 360px;
+  }
+}
+
+/* 3D 资产预览预留窗口：暂无内容，仅占位提示 */
+.model3d-placeholder {
+  margin-top: 14px;
+  border: 1px dashed #bfccd1;
+  border-radius: 8px;
+  background: #f9fbfb;
+  overflow: hidden;
+}
+
+.model3d-placeholder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px dashed #d9e2e5;
+  background: #ffffff;
+}
+
+.model3d-placeholder-header strong {
+  font-size: 14px;
+  color: #3f5159;
+}
+
+.model3d-placeholder-header span {
+  font-size: 12px;
+  color: #8aa0a8;
+}
+
+.model3d-placeholder-body {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  padding: 24px;
+  color: #8aa0a8;
+  font-size: 13px;
 }
 
 .file-fallback {
@@ -353,4 +592,3 @@ select {
     flex-direction: column;
   }
 }
-
