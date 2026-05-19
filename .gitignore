@@ -27,6 +27,11 @@ backend/data/assets/video/
 backend/data/assets/motion/
 backend/data/assets/facial/
 backend/data/logs/*.log
+# MediaPipe 等本地模型文件体积大，约定不入库；由开发者按 README 下载到 backend/data/models/
+backend/data/models/
+
+# Claude Code 本地配置与会话记录，不进版本库
+.claude/
 
 # Node / frontend
 node_modules/

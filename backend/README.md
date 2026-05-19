@@ -90,10 +90,12 @@ data/
 
 ## Provider Strategy
 
-Current implementation uses Qwen-Image for text-to-image character generation, Wan image-to-video for video generation, and mock providers for the remaining unfinished integrations:
+Current implementation uses Qwen-Image for text-to-image character generation, Wan image-to-video for video generation, MediaPipe Pose for local motion capture, and mock providers for the remaining unfinished integrations:
 
 - `QwenImageProvider`: calls `qwen-image-2.0-pro`, downloads generated PNG files to local assets
 - `WanImageToVideoProvider`: calls `wan2.7-i2v-2026-04-25`, polls the async task, downloads generated MP4 files to local assets
+- `MediaPipeMotionProvider` (default for motion): runs MediaPipe Pose Landmarker locally, outputs `motion_keypoints.json` + an overlay preview `motion_overlay.mp4`
+- `QianmianMotionProvider`: optional cloud motion capture via qmai.vip (requires `QMAI_COMPANY_KEY` in `backend/.env`)
 - `MockMotionProvider`
 - `MockFacialProvider`
 
@@ -120,6 +122,20 @@ For Singapore, set:
 ```powershell
 $env:DASHSCOPE_BASE_URL="https://dashscope-intl.aliyuncs.com/api/v1"
 ```
+
+## MediaPipe 模型下载（动作捕捉首次运行）
+
+`MediaPipeMotionProvider` 需要本地放一个 Pose Landmarker 模型文件（约 5.5MB），仓库不入库，首次运行前手动下载：
+
+```bash
+mkdir -p backend/data/models
+curl -L -o backend/data/models/pose_landmarker_lite.task \
+  https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task
+```
+
+如果要更精准的版本，可换成 `pose_landmarker_full.task` 或 `pose_landmarker_heavy.task`，并在调用接口时用 `params.model_path` 指定绝对路径。
+
+依赖：`pip install mediapipe opencv-python`（已在 `requirements.txt` 之外的本地环境装好即可）。
 
 ## Example: Character Job
 
