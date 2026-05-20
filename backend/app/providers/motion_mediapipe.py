@@ -12,11 +12,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import cv2
+import imageio_ffmpeg
 import mediapipe as mp
 import numpy as np
 from mediapipe.tasks import python as mp_python
@@ -109,12 +111,33 @@ class MediaPipeMotionProvider:
 
         # 把预览 mp4 先写到临时目录，最后再以 bytes 形式交给 storage_service
         overlay_tmp = Path(tempfile.mkstemp(suffix="_overlay.mp4")[1])
-        # mp4v 兼容性最好；浏览器可能更喜欢 H.264，但 OpenCV 默认编码不一定带 x264，先用 mp4v 保证能写出
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(str(overlay_tmp), fourcc, fps, (width, height))
-        if not writer.isOpened():
-            cap.release()
-            raise RuntimeError("OpenCV VideoWriter 初始化失败，无法写预览 mp4")
+        # 通过 ffmpeg subprocess 写 H.264 mp4：OpenCV 自带的 mp4v 编码（MPEG-4 Part 2）
+        # 不被主流浏览器 <video> 接受，必须用 libx264 + yuv420p + faststart 才能在前端原生播放
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        ffmpeg_cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-loglevel", "error",
+            # 输入是从 stdin 读裸 BGR 帧
+            "-f", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-s", f"{width}x{height}",
+            "-r", f"{fps}",
+            "-i", "-",
+            # 输出 H.264 mp4
+            "-an",
+            "-vcodec", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-preset", "veryfast",
+            "-movflags", "+faststart",
+            str(overlay_tmp),
+        ]
+        ffmpeg_proc = subprocess.Popen(
+            ffmpeg_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
 
         # 初始化 PoseLandmarker（VIDEO 模式按时间戳推进）
         options = vision.PoseLandmarkerOptions(
@@ -184,11 +207,27 @@ class MediaPipeMotionProvider:
                         }
                     )
 
-                    writer.write(frame_bgr)
+                    writer_write_frame(ffmpeg_proc, frame_bgr)
                     frame_index += 1
         finally:
             cap.release()
-            writer.release()
+            # 关闭 ffmpeg stdin，等其完成 mp4 写盘；如果失败则把 stderr 抛出来，便于排查
+            try:
+                if ffmpeg_proc.stdin is not None:
+                    ffmpeg_proc.stdin.close()
+            except BrokenPipeError:
+                pass
+            stderr_bytes = b""
+            try:
+                _, stderr_bytes = ffmpeg_proc.communicate(timeout=120)
+            except subprocess.TimeoutExpired:
+                ffmpeg_proc.kill()
+                raise RuntimeError("ffmpeg 写 mp4 超时（>120s）")
+            if ffmpeg_proc.returncode != 0:
+                raise RuntimeError(
+                    f"ffmpeg 编码失败 (returncode={ffmpeg_proc.returncode}): "
+                    f"{stderr_bytes.decode('utf-8', errors='ignore')}"
+                )
 
         # 读出预览 mp4 字节，存为 artifact 后即可删临时文件
         overlay_bytes = overlay_tmp.read_bytes()
@@ -254,6 +293,17 @@ class MediaPipeMotionProvider:
                 "fps": fps,
             },
         )
+
+
+def writer_write_frame(proc: subprocess.Popen, frame_bgr: np.ndarray) -> None:
+    """把一帧 BGR 图像写入 ffmpeg stdin。
+    必须保证 frame_bgr 是连续内存的 uint8 数组，且尺寸与 ffmpeg 命令里的 -s 一致。
+    """
+    # OpenCV 输出的 frame 已经是 uint8 BGR，直接 tobytes 就是 raw bgr24
+    if not frame_bgr.flags["C_CONTIGUOUS"]:
+        frame_bgr = np.ascontiguousarray(frame_bgr)
+    assert proc.stdin is not None
+    proc.stdin.write(frame_bgr.tobytes())
 
 
 def _draw_pose_on_frame(frame_bgr: np.ndarray, landmarks: list, width: int, height: int) -> None:

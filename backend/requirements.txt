@@ -3,3 +3,6 @@ uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
 httpx==0.28.1
+mediapipe==0.10.35
+opencv-python==4.13.0.92
+imageio-ffmpeg==0.6.0

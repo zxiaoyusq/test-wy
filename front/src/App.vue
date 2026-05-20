@@ -103,24 +103,36 @@ function stemOf(name) {
   return dot === -1 ? name : name.slice(0, dot)
 }
 
-// 把当前输出按"图片 + 同名 JSON"配对成预览项，剩余资源仍单独展示
+// 把当前输出按"主预览资源 + JSON"配对成预览项，剩余资源仍单独展示。
+// 配对规则：image / video 都视为可配对的主资源；优先按同 stem 名匹配（character 模块），
+// 名字对不上时回退到"模块内第一个未使用的 JSON"（video / motion 模块），保证每个 job 的
+// JSON 都能跟它的图片或视频并排展示。
 const previewItems = computed(() => {
   const outputs = currentOutputs.value
-  // 先按 stem 建立 JSON 索引
+  // 建立 JSON 的 stem 索引和原始顺序列表，分别用于精确匹配和顺序兜底
   const jsonByStem = new Map()
+  const jsonList = []
   for (const asset of outputs) {
     if (asset.format === 'json') {
       jsonByStem.set(stemOf(asset.name), asset)
+      jsonList.push(asset)
     }
   }
   const usedJsonIds = new Set()
   const items = []
-  // 第一轮：图片/预览类资源尝试配对同名 JSON
+  // 第一轮：image / video 类资源尝试配对 JSON
   for (const asset of outputs) {
     if (asset.format === 'json') continue
     const kind = previewKind(asset)
-    if (kind === 'image') {
-      const paired = jsonByStem.get(stemOf(asset.name))
+    if (kind === 'image' || kind === 'video') {
+      // 先按同名 stem 配对（character_image_1.png ↔ character_image_1.json）
+      let paired = jsonByStem.get(stemOf(asset.name))
+      if (paired && usedJsonIds.has(paired.id)) paired = null
+      // 同名匹配失败时，挑当前模块输出里第一个还没被用过的 JSON
+      // 这样 motion_overlay.mp4 + motion_keypoints.json、output_video.mp4 + video_config.json 也能并排展示
+      if (!paired) {
+        paired = jsonList.find((j) => !usedJsonIds.has(j.id))
+      }
       if (paired) {
         usedJsonIds.add(paired.id)
         items.push({ kind: 'paired', primary: asset, json: paired })
@@ -549,7 +561,17 @@ onMounted(checkBackend)
               <div class="paired-body">
                 <div class="paired-image">
                   <div class="asset-preview">
-                    <img :src="assetUrl(item.primary.id)" :alt="item.primary.name" />
+                    <!-- 主资源可能是图片（character）或视频（video / motion），按 previewKind 分别渲染 -->
+                    <img
+                      v-if="previewKind(item.primary) === 'image'"
+                      :src="assetUrl(item.primary.id)"
+                      :alt="item.primary.name"
+                    />
+                    <video
+                      v-else-if="previewKind(item.primary) === 'video'"
+                      :src="assetUrl(item.primary.id)"
+                      controls
+                    />
                   </div>
                   <div class="asset-meta">
                     <strong>{{ item.primary.name }}</strong>
