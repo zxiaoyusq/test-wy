@@ -25,7 +25,7 @@ Modules are not auto-orchestrated. Each module creates its own job and writes ou
 
 ```powershell
 cd D:\dev\orders\test\backend
-conda activate base
+conda activate 313
 python -m pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```

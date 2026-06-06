@@ -25,4 +25,4 @@
 **核心：** 代码的首要目的是让人类易于理解。
 
 # 开发和测试环境
-后端是python3.13,使用 conda activate base环境
+后端是python3.13,使用 conda activate 313环境
